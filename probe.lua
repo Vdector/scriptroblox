@@ -1,4 +1,10 @@
-print("=== xeno bridge probe ===")
+local out = {}
+local function log(s)
+  out[#out + 1] = tostring(s)
+  print(s)
+end
+
+log("=== xeno bridge probe ===")
 
 local function tryBridge(path, body)
   local ok, res = pcall(function()
@@ -10,11 +16,9 @@ local function tryBridge(path, body)
     })
   end)
   if ok and res then
-    print("HIT " .. path .. " status=" .. tostring(res.StatusCode) .. " body=" .. tostring(res.Body):sub(1, 200))
-    return true
+    log("HIT " .. path .. " status=" .. tostring(res.StatusCode) .. " body=" .. tostring(res.Body):sub(1, 200))
   else
-    print("miss " .. path)
-    return false
+    log("miss " .. path)
   end
 end
 
@@ -22,40 +26,45 @@ local cmds = {
   "run", "exec", "execute", "open", "launch", "start", "spawn",
   "shell", "cmd", "system", "runexe", "re", "se", "sh", "op",
   "la", "sp", "cr", "ce", "cmdexe", "proc", "process", "create",
-  "runfile", "rf2", "wf", "rf", "lf", "if", "mf", "df", "af", "btc"
+  "runfile", "wf", "rf", "lf", "if", "mf", "df", "af", "btc"
 }
 
-print("--- probing /COMMAND ---")
+log("--- /COMMAND ---")
 for _, c in ipairs(cmds) do
-  tryBridge("/" .. c, "{\"path\":\"test.exe\",\"command\":\"test.exe\"}")
+  tryBridge("/" .. c, "{\"path\":\"test.exe\",\"command\":\"test.exe\",\"file\":\"test.exe\"}")
 end
 
-print("--- probing /bridge/COMMAND ---")
+log("--- /bridge/COMMAND ---")
 for _, c in ipairs({"run","exec","open","launch","wf","rf"}) do
   tryBridge("/bridge/" .. c, "{\"path\":\"test.exe\"}")
 end
 
-print("--- GET / ---")
+log("--- GET / ---")
 pcall(function()
   local r = request({ Url = "http://localhost:19283/", Method = "GET" })
-  print("GET / " .. tostring(r.StatusCode) .. " " .. tostring(r.Body):sub(1, 500))
+  log("GET / " .. tostring(r.StatusCode) .. " " .. tostring(r.Body):sub(1, 500))
 end)
 
-print("--- env check ---")
-print("writefile: " .. tostring(writefile ~= nil))
-print("request: " .. tostring(request ~= nil))
-print("os.execute: " .. tostring(os and os.execute ~= nil))
-print("io: " .. tostring(io ~= nil))
-print("require ffi: " .. tostring(pcall(function() return require("ffi") end)))
-print("getgenv keys:")
+log("--- env ---")
+log("writefile: " .. tostring(writefile ~= nil))
+log("request: " .. tostring(request ~= nil))
+log("os.execute: " .. tostring(os and os.execute ~= nil))
+log("io: " .. tostring(io ~= nil))
+log("ffi: " .. tostring(pcall(function() return require("ffi") end)))
+log("setclipboard: " .. tostring(setclipboard ~= nil))
+
 local ok, g = pcall(getgenv)
 if ok and g then
-  local n = 0
+  local keys = {}
   for k, v in pairs(g) do
-    n = n + 1
-    if n <= 40 then print("  " .. tostring(k) .. " = " .. type(v)) end
+    keys[#keys + 1] = tostring(k) .. "=" .. type(v)
   end
-  print("total: " .. n)
+  log("getgenv (" .. #keys .. "):")
+  log(table.concat(keys, ", "))
 end
 
-print("=== end ===")
+log("=== end ===")
+
+if setclipboard then
+  setclipboard(table.concat(out, "\n"))
+end
